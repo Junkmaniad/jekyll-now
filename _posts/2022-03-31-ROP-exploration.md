@@ -15,11 +15,13 @@ Another note is that the solution is highly Google-able as it is a very basic fo
 ## **Buffer Overflows?**
 
 So sometimes a program creates a buffer to contain a certain input from the user. 
+
+
 {% highight c %}
-void Func1(char* input) {
-	char buffer[80];
-    strcpy(buffer, input);
-}
+  void Func1(char* input) {
+      char buffer[80];
+      strcpy(buffer, input);
+  }
 {% endhighlight %}
 
 However, in a language like C, there isn't really a default system in place to prevent users from entering inputs **larger** than the buffer. So in the case of that, the excess input will **overflow** into other parts of memory, and it turns out that it is possible to control the content of what exaxctly overflows to those parts of memory.
@@ -44,10 +46,10 @@ The solution to the first one was to overflow the buffer, and rewrite the PC to 
 
 Now, this was all possible because the stack in Challenge1 had RWX permissions, ie Read, Write and Execute permisions.
 
-In Challenge2, the XN (Execute Never) bit was turned on, and it is not longer as straightforward to just straight up run whatever code the attacker wants to inject. What we now want to do is to kind of piece together puzzle pieces, using code snippets that are already present in the system, in order to carry out what we want. 
+In Challenge2, the XN (Execute Never) bit was turned on, and it is not longer as straightforward to just straight up run whatever code the attacker wants to inject. What we now want to do is to kind of piece together puzzle pieces, using code snippets that are already present in the system, in order to carry out what we want. Specifically here, we will be using code snippets from the libc (basically the preinstalled C library) in order to carry out our evil deeds, since libc has execute permissions.
 
 ![The stack only has read and write permissions.]({{site.baseurl}}/_posts/permissions.png)
-_The stack only has read/write permissions._
+_The stack only has read/write permissions, whereas part of libc does have execute permissions._
 
 
 (While it seems dubious to hope that the code snippets you find in a system/machine can actually be pieced together to do what an attacker wants, it has been proven that ROP is Turing-Complete (that as a whole, the code snippets you get basically function like any other programming language out there))
@@ -63,12 +65,74 @@ After this, we run the program through and observe the segfault that occurs, and
 
 ![Running pattern search to determine at what point stuff overflows into the PC.]({{site.baseurl}}/_posts/offset2.png)
 _Running pattern search to determine at exactly what point stuff overflows into the PC (Or rather what part of the code is popped into PC from the stack)_
+
 (I am yet to fully grasp why we search for $pc + 1, but roughly I believe it is because in ARM the PC always adjusts itself for alignment purposes)
+
+
 
 Anyways, we have discovered that the offset is 132, ie our 'payload' will begin with 132 characters of garbage before getting to the actual meat.
 
 So, we have the beginnings of our exploit code:
 ![python1.png]({{site.baseurl}}/_posts/python1.png)
+
+-------------------------------------------------------------
+## **The actual ROPping**
+
+Now, we need to figure out what code snippets to use in order to make the machine run system("/bin/sh").
+
+Roughly, our final goal is:
+
+
+**1) Have the PC pointing to the 'system' function, wherever it is in memory.**
+
+
+**2) Have r0 contain the string "/bin/sh" (which, yes, is present in libc)**
+_(why r0 specifically? Because the system function runs whatever is in r0 as the argument)_
+  
+
+That actually doesn't seem that hard! Let's begin with
+
+
+
+### **Where are system and "/bin/sh"?**
+
+
+![system.png]({{site.baseurl}}/_posts/system.png)
+_It's as simple as that._
+
+
+By running the code in the debugger, setting a breakpoint, and using the above command, we find that the address of system is at **0xb6f0b48c**.
+
+
+![binsh.png]({{site.baseurl}}/_posts/binsh.png)
+
+
+Next, we run this command (googleable) and we find that the string "/bin/sh" is stored in **0xb6fb407c**.
+
+
+### **How do we control the registers?**
+
+
+Now for the hard part. How do we get r0 and PC to point to what we require?
+
+
+For r0, the **LDR** function comes to mind. We can try some sort of "**LDR r0, [SP]**" gadget if that exists (gadget = code snippet)
+
+
+Time for our good friend Ropper. Cd-ing into the directory where libc resides, we run Ropper and use the command "**search /1/ LDR r0**" to search for any gadgets of length 1 (excluding the return instruction). _(Length 1 ensures that we minimise the number of instructions and thus the amount of complications we have to bother with)_
+
+
+![ropper1.png]({{site.baseurl}}/_posts/ropper1.png)
+![ropper2.png]({{site.baseurl}}/_posts/ropper2.png)
+_The list is longer than this, but we are only interested in loading something from what SP is pointing to onto r0, not data from other registers._
+
+
+Damn, looks like we aren't in luck. There is no **LDR r0, [SP]**. But isn't the **LDR r0, [SP, #4]** gadget the same thing? I just have to make "/bin/sh" appear 4 bytes further down. _Voila_, I thought, _this is it_.
+
+
+At that time, my idea was:
+
+
 
 
 
