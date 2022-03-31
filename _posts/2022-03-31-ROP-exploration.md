@@ -258,6 +258,25 @@ The address that PC was pointing at and the actual next address for system were 
     print payload
 
 
+![success.png]({{site.baseurl}}/_posts/success.png)
+_There we go._
 
 
+
+That was quite the marathon (for me), although I felt like this really would be so straightforward for many others. I guess we all have to start somewhere.
+
+
+
+
+## **BONUS: So what did I end up doing?**
+
+
+Inspired by a source over the internet, I went to look for longer instructions that contained LDR r0, using "**search /2/ LDR r0**". 
+
+![questionable.png]({{site.baseurl}}/_posts/questionable.png)
+
+_Desparately grasping for any help_
+
+
+I ended up using the instruction at **0x000beb2e**, which was **LDR r0, [SP, #4]; add SP, #8; pop {r4, PC}**. This required a bit more acrobatics down on the stack, but everything still worked fine. Eventually, I realised that my system() address was off by one byte, as mentioned above, and the rest is history.
 
