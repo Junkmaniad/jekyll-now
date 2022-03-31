@@ -183,7 +183,7 @@ The issue that I overlooked was that I assumed that the program flow would just 
 ### **[Author's note]**
 
 
-While typing this out, in hindsight, since r4 was pointing, like, 20 bytes away from my desired function call, I could've just inserted an additional 20 characters of garbage instead. As follows:
+While typing this out, I considered that since r4 was pointing, like, 20 bytes away from my desired function call, I could've just inserted an additional 20 characters of garbage instead. As follows:
 
 	#!/usr/bin/python
     from struct import pack
@@ -197,6 +197,13 @@ While typing this out, in hindsight, since r4 was pointing, like, 20 bytes away 
     payload += "/x8c/xb4/xf0/xb6"
     print payload
 
+However, this still didn't work. Some examination revealed that since the BL swapped the program to Thumb mode, the PC got sent to the wrong place (1 byte away from the system() call) and the system crashed from there as the address didn't align to Thumb. This requires some further investigation as I'm not so confident on my understanding of this.
+
+
+## **Back to Square One?**
+
+
+So, I couldn't find a satisfying **LDR r0, [SP]** instruction. Were there any alternatives? After thinking for a bit, I realised that I could try, instead, **popping** system() and "/bin/sh" off the stack into r0 and pc. So, lets open up Ropper again and do "**"search /1/ pop{r0"**.
 
 
 
