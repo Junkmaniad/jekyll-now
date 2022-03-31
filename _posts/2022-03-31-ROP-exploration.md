@@ -1,5 +1,6 @@
 ---
-published: false
+published: true
+layout: post
 ---
 Currently studying/reading up on ARM assembly, and moving on to exploits -- this week I've read up on stack overflows and some basic Return Oriented Programming (ROP), following [this](https://azeria-labs.com/return-oriented-programming-arm32/) great tutorial on azerialabs. I suppose partially due to my complete lack of knowledge of this entire field, actually getting the exploit to work on my end was a lot more difficult than I felt it should've been, especially after reaching the endpoint (kind of like a hard math problem which seems a lot easier in hindsight, but when you were completely lost when trying to solve originally)
 
@@ -14,7 +15,7 @@ Another note is that the solution is highly Google-able as it is a very basic fo
 **A basic explanation of a buffer overflow, I suppose**
 
 So sometimes a program creates a buffer to contain a certain input from the user. 
-{% highight C %}
+{% highight c %}
 void Func1(char* input) {
 	char buffer[80];
     strcpy(buffer, input);
