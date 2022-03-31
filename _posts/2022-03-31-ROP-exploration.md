@@ -16,13 +16,11 @@ Another note is that the solution is highly Google-able as it is a very basic fo
 
 So sometimes a program creates a buffer to contain a certain input from the user. 
 
+	void Func1(char* input) {
+    	char buffer [80];
+        strcpy(buffer, input);
+    }
 
-{% highight c %}
-  void Func1(char* input) {
-      char buffer[80];
-      strcpy(buffer, input);
-  }
-{% endhighlight %}
 
 However, in a language like C, there isn't really a default system in place to prevent users from entering inputs **larger** than the buffer. So in the case of that, the excess input will **overflow** into other parts of memory, and it turns out that it is possible to control the content of what exaxctly overflows to those parts of memory.
 
@@ -73,7 +71,11 @@ _Running pattern search to determine at exactly what point stuff overflows into 
 Anyways, we have discovered that the offset is 132, ie our 'payload' will begin with 132 characters of garbage before getting to the actual meat.
 
 So, we have the beginnings of our exploit code:
-![python1.png]({{site.baseurl}}/_posts/python1.png)
+
+	#!/usr/bin/python
+    from struct import pack
+    payload = 'A' * 132
+    print payload
 
 -------------------------------------------------------------
 ## **The actual ROPping**
@@ -127,11 +129,61 @@ Time for our good friend Ropper. Cd-ing into the directory where libc resides, w
 _The list is longer than this, but we are only interested in loading something from what SP is pointing to onto r0, not data from other registers._
 
 
-Damn, looks like we aren't in luck. There is no **LDR r0, [SP]**. But isn't the **LDR r0, [SP, #4]** gadget the same thing? I just have to make "/bin/sh" appear 4 bytes further down. _Voila_, I thought, _this is it_.
+Damn, looks like we aren't in luck. There is no **LDR r0, [SP]**. But isn't the **LDR r0, [SP, #4]** gadget the same thing? I just have to make "/bin/sh" appear 4 bytes further down. _Voila,_ I thought, _this is it._ We need the address of this gadget, which isn't trivially the number we see in this screenshot. We need to add it onto the base address of libc, which I have indicated as follows:
+![libcwhere.png]({{site.baseurl}}/_posts/libcwhere.png)
+_We will use the python function struct pack later on to add the addresses together because we're lazy._
+
 
 
 At that time, my idea was:
+![stack1.png]({{site.baseurl}}/_posts/stack1.png)
+![stack2.png]({{site.baseurl}}/_posts/stack2.png)
+_The stack, and the corresponding hex representation_
 
+
+Where the flow of events I expected was: pop gadget onto pc --> load r0 with "/bin/sh" --> next on the stack is system() so PC will execute system with r0 as the argument.
+
+
+## **Back to the payload!**
+
+Now, translating all that into the payload:
+
+	#!/usr/bin/python
+    from struct import pack
+    libc = 0xb6ede000 #Base address of libc
+    
+    payload = 'A' * 132
+    payload += pack('<I', libc + 0x000259d3) #The gadget LDR r0, [SP, #4]
+    payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
+    print payload
+
+
+Perfect! Now let's run it:
+
+	user@azeria-labs-arm:~/challenges$ chmod +x exploit2demo.py #making the script executable
+    user@azeria-labs-arm:~/challenges$ export BOOM=$(./exploit2demo.py) #setting the environment variable BOOM to run the code (which basically does the same thing as setting a very long string as an argument for the program)
+    user@azeria-labs-arm:~/challenges$ ./challenge2 "$BOOM" #running the program with the 		payload...
+    Segmentation Fault
+    user@azeria-labs-arm:~/challenges$
+    
+## **Wait, what?**
+
+
+No shell access! The program only crashed, and did nothing else. What went wrong?
+
+
+After a fair bit of debugging, I realised the issue: The payload I sent in fact did almost everything I wanted it to do: r0 really was holding the value "/bin/sh", and the top of the stack really was pointing to system.
+
+![righttrack.png]({{site.baseurl}}/_posts/righttrack.png)
+_Signs that I was on the right track._
+
+The issue that I overlooked was that I assumed that the program flow would just go back to SP after loading r0 with my desired value. However, the command that followed **LDR r0, [SP, #4]** was actually **BLX r4**, and r4 was pointing at **0xbefffa88**, effectively skipping my buffer overflow! Back to square one, I suppose. 
+
+
+### **[Author's note]**
+
+
+While typing this out, in hindsight, since r4 was pointing, like, 20 bytes away fr
 
 
 
