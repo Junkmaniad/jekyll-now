@@ -26,6 +26,7 @@ However, in a language like C, there isn't really a default system in place to p
 
 Borrowing this image from AzeriaLab's writeup on this,
 ![stackoverflow.png]({{site.baseurl}}/assets/images/stackoverflow.png)
+_Credit: Azeria Labs (https://azeria-labs.com/stack-overflow-arm32/)_
 
 
 The buffer content can actually overflow into the stack, which, among other things, is the place which saves the return address for a program when it branches into a function. Hence, by rewriting this return address into something else, we can get the program to just do something completely different after completing the function. Do read the [aforementioned post](https://azeria-labs.com/stack-overflow-arm32/) for greater detail.
@@ -130,7 +131,7 @@ _The list is longer than this, but we are only interested in loading something f
 
 
 Damn, looks like we aren't in luck. There is no **LDR r0, [SP]**. But isn't the **LDR r0, [SP, #4]** gadget the same thing? I just have to make "/bin/sh" appear 4 bytes further down. _Voila,_ I thought, _this is it._ We need the address of this gadget, which isn't trivially the number we see in this screenshot. We need to add it onto the base address of libc, which I have indicated as follows:
-![libcwhere.png]({{site.baseurl}}/_posts/libcwhere.png)
+![libcwhere.png]({{site.baseurl}}/assets/images/libcwhere.png)
 _We will use the python function struct pack later on to add the addresses together because we're lazy._
 
 
@@ -158,6 +159,8 @@ Now, translating all that into the payload:
     payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
     print payload
 
+------------------------------------------------------------------
+
 ### **Tangent: what's with the hex (/x8c/xb4/...)?**
 
 
@@ -169,6 +172,10 @@ It may not seem completely obvious how exactly we went from the addresses we fou
 
 -**Why is it in reverse?** If you noticed, we wanted the machine to read 0xb6f0b48c and then 0xb6fb407c, but each of these hex numbers has been split into 4 individual bytes, had the order reversed, and then joined together. This is due to a feature of the system known as little-endianness. Basically when the system reads a 4 byte chunk, it treats the byte at the lowest memory value as the **least significant byte (LSB)**, ie, it is at the lowest 'place' (Think ones place, and tens place in Base 10). So, the byte on the top of the stack is actually the '16's and '1s' place of the eventual 4-byte chunk we want to feed the machine. And when our payload overflows into the stack, it does so from the top down, meaning that whatever goes in first will be at the top of the stack, and thus the LSB/rightmost part of the 4-byte hex value we desire. 
 
+![Little-Endian.svg]({{site.baseurl}}/assets/images/Little-Endian.svg)
+_A nice graphic that I found on Wikipedia. (Credit: R. S. Shaw on https://en.wikipedia.org/wiki/Endianness)_
+
+------------------------------------------------------------------------
 
 Perfect! Now let's run it:
 
@@ -296,4 +303,6 @@ _Desparately grasping for straws._
 
 I ended up using the instruction at **0x000beb2e**, which was **LDR r0, [SP, #4]; add SP, #8; pop {r4, PC}**. This required a bit more acrobatics down on the stack, but everything still worked fine. Eventually, I realised that my system() address was off by one byte, as mentioned above, and the rest is history.
 
-
+![stack5.png]({{site.baseurl}}/assets/images/stack5.png)
+![stack6.png]({{site.baseurl}}/assets/images/stack6.png)
+_Stack visualisation for this. Clearly slightly more complicated than the previous two._
