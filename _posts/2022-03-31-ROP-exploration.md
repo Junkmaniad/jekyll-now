@@ -8,7 +8,7 @@ To run/write ARM code, I've been using the [Azeria Labs VM](https://azeria-labs.
 
 This post will specifically touch on Challenge2 in the very first link, which comes included in the VM. My thought processes will probably assume one has, at the very least, some understanding of ARM syntax and the stack, since that is roughly what I had while trying to crack this. (For a decent runthrough of these concepts, do peruse the azerialabs website)
 
-Another note is that the solution is highly Google-able as it is a very basic form of a ReturntoLibc attack. I suppose what I will document here are my mistakes and ideas that I entertained.
+Another note is that the solution is highly Google-able as it is a very basic form of a ReturntoLibc attack. I suppose what I will document here are my mistakes and ideas that I entertained -- how I'd explain the whole process to myself.
 
 --------------------------------------------------
 
