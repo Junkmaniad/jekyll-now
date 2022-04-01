@@ -137,7 +137,9 @@ _We will use the python function struct pack later on to add the addresses toget
 
 
 At that time, my idea was:
-![stack1.png]({{site.baseurl}}/assets/images/stack1.png)
+
+
+<img src=https://junkmaniad.github.io/assetsimages/stack1.png width="250" height="95">
 ![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
 _The stack, and the corresponding hex representation_
 
