@@ -151,7 +151,7 @@ _We will use the python function struct pack later on to add the addresses toget
 At that time, my idea was:
 
 
-![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
+![stack1.png]({{site.baseurl}}/assets/images/stack1.png)
 ![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
 
 
@@ -189,6 +189,8 @@ It may not seem completely obvious how exactly we went from the addresses we fou
 -**Why is it in reverse?** If you noticed, we wanted the machine to read 0xb6f0b48c and then 0xb6fb407c, but each of these hex numbers has been split into 4 individual bytes, had the order reversed, and then joined together. This is due to a feature of the system known as little-endianness. Basically when the system reads a 4 byte chunk, it treats the byte at the lowest memory value as the **least significant byte (LSB)**, ie, it is at the lowest 'place' (Think ones place, and tens place in Base 10). So, the byte on the top of the stack is actually the '16's and '1s' place of the eventual 4-byte chunk we want to feed the machine. And when our payload overflows into the stack, it does so from the top down, meaning that whatever goes in first will be at the top of the stack, and thus the LSB/rightmost part of the 4-byte hex value we desire. 
 
 ![Little-Endian.svg]({{site.baseurl}}/assets/images/Little-Endian.svg)
+
+
 _A nice graphic that I found on Wikipedia. (Credit: R. S. Shaw on https://en.wikipedia.org/wiki/Endianness)_
 
 ------------------------------------------------------------------------
