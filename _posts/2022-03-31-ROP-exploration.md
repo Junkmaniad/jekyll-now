@@ -25,7 +25,7 @@ So sometimes a program creates a buffer to contain a certain input from the user
 However, in a language like C, there isn't really a default system in place to prevent users from entering inputs **larger** than the buffer. So in the case of that, the excess input will **overflow** into other parts of memory, and it turns out that it is possible to control the content of what exaxctly overflows to those parts of memory.
 
 Borrowing this image from AzeriaLab's writeup on this,
-![stackoverflow.png]({{site.baseurl}}/_posts/stackoverflow.png)
+![stackoverflow.png]({{site.baseurl}}/assets/images/stackoverflow.png)
 
 
 The buffer content can actually overflow into the stack, which, among other things, is the place which saves the return address for a program when it branches into a function. Hence, by rewriting this return address into something else, we can get the program to just do something completely different after completing the function. Do read the [aforementioned post](https://azeria-labs.com/stack-overflow-arm32/) for greater detail.
@@ -37,7 +37,7 @@ The buffer content can actually overflow into the stack, which, among other thin
 ## **What next?**
 
 The goal in both challenges is to exploit the C file, and gain access to the [shell](https://en.wikipedia.org/wiki/Shell_(computing)).
-![Screenshot 2022-03-30 at 8.45.20 PM.png]({{site.baseurl}}/_posts/Screenshot 2022-03-30 at 8.45.20 PM.png)
+![Screenshot 2022-03-30 at 8.45.20 PM.png]({{site.baseurl}}/assets/images/Screenshot 2022-03-30 at 8.45.20 PM.png)
 
 
 The solution to the first one was to overflow the buffer, and rewrite the PC to point to the stack, and from there execute shellcode (in this case, code that we have manually inserted to run the command "system(/bin/sh)" and gain access to the shell)
@@ -46,7 +46,7 @@ Now, this was all possible because the stack in Challenge1 had RWX permissions, 
 
 In Challenge2, the XN (Execute Never) bit was turned on, and it is not longer as straightforward to just straight up run whatever code the attacker wants to inject. What we now want to do is to kind of piece together puzzle pieces, using code snippets that are already present in the system, in order to carry out what we want. Specifically here, we will be using code snippets from the libc (basically the preinstalled C library) in order to carry out our evil deeds, since libc has execute permissions.
 
-![The stack only has read and write permissions.]({{site.baseurl}}/_posts/permissions.png)
+![The stack only has read and write permissions.]({{site.baseurl}}/assets/images/permissions.png)
 _The stack only has read/write permissions, whereas part of libc does have execute permissions._
 
 
@@ -56,12 +56,12 @@ Now, what we have to do first is to determine the **offset** of the program, ie 
 
 Fortunately, we can use our debugging tool (GDB) to figure this out instead of trial and error of running a massive number of As into the program.
 
-![conveniently getting a massive output that we can paste into the program]({{site.baseurl}}/_posts/offset1.png)
+![conveniently getting a massive output that we can paste into the program]({{site.baseurl}}/assets/images/offset1.png)
 _Generating a long string to crash the program with_
 
 After this, we run the program through and observe the segfault that occurs, and do the following to find the offset:
 
-![Running pattern search to determine at what point stuff overflows into the PC.]({{site.baseurl}}/_posts/offset2.png)
+![Running pattern search to determine at what point stuff overflows into the PC.]({{site.baseurl}}/assets/images/offset2.png)
 _Running pattern search to determine at exactly what point stuff overflows into the PC (Or rather what part of the code is popped into PC from the stack)_
 
 (I am yet to fully grasp why we search for $pc + 1, but roughly I believe it is because in ARM the PC always adjusts itself for alignment purposes)
@@ -99,14 +99,14 @@ That actually doesn't seem that hard! Let's begin with
 ### **Where are system and "/bin/sh"?**
 
 
-![system.png]({{site.baseurl}}/_posts/system.png)
+![system.png]({{site.baseurl}}/assets/images/system.png)
 _It's as simple as that._
 
 
 By running the code in the debugger, setting a breakpoint, and using the above command, we find that the address of system is at **0xb6f0b48c**.
 
 
-![binsh.png]({{site.baseurl}}/_posts/binsh.png)
+![binsh.png]({{site.baseurl}}/assets/images/binsh.png)
 
 
 Next, we run this command (googleable) and we find that the string "/bin/sh" is stored in **0xb6fb407c**.
@@ -124,8 +124,8 @@ For r0, the **LDR** function comes to mind. We can try some sort of "**LDR r0, [
 Time for our good friend Ropper. Cd-ing into the directory where libc resides, we run Ropper and use the command "**search /1/ LDR r0**" to search for any gadgets of length 1 (excluding the return instruction). _(Length 1 ensures that we minimise the number of instructions and thus the amount of complications we have to bother with)_
 
 
-![ropper1.png]({{site.baseurl}}/_posts/ropper1.png)
-![ropper2.png]({{site.baseurl}}/_posts/ropper2.png)
+![ropper1.png]({{site.baseurl}}/assets/images/ropper1.png)
+![ropper2.png]({{site.baseurl}}/assets/images/ropper2.png)
 _The list is longer than this, but we are only interested in loading something from what SP is pointing to onto r0, not data from other registers._
 
 
@@ -136,8 +136,8 @@ _We will use the python function struct pack later on to add the addresses toget
 
 
 At that time, my idea was:
-![stack1.png]({{site.baseurl}}/_posts/stack1.png)
-![stack2.png]({{site.baseurl}}/_posts/stack2.png)
+![stack1.png]({{site.baseurl}}/assets/images/stack1.png)
+![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
 _The stack, and the corresponding hex representation_
 
 
@@ -157,6 +157,17 @@ Now, translating all that into the payload:
     payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
     print payload
 
+### **Tangent: what's with the hex (/x8c/xb4/...)?
+
+
+It may not seem completely obvious how exactly we went from the addresses we found to...  this weird string of alphanumeric characters. Basically:
+
+
+-The "/x" indicates that the following two characters are in hex(adecimal). So /xb6 really just means 0xb6. The reason they are separated into 2 characters at the time, I suppose, is becaue we need to feed the machine the info/input byte by byte (really have no clue on exactly why, though.)
+
+
+-**Why is it in reverse?** If you noticed, we wanted the machine to read 0xb6f0b48c and then 0xb6fb407c, but each of these hex numbers has been split into 4 individual bytes, had the order reversed, and then joined together. This is due to a feature of the system known as little-endianness. Basically when the system reads a 4 byte chunk, it treats the byte at the lowest memory value as the **least significant byte (LSB)**, ie, it is at the lowest 'place' (Think ones place, and tens place in Base 10). So, the byte on the top of the stack is actually the '16's and '1s' place of the eventual 4-byte chunk we want to feed the machine. And when our payload overflows into the stack, it does so from the top down, meaning that whatever goes in first will be at the top of the stack, and thus the LSB/rightmost part of the 4-byte hex value we desire. 
+
 
 Perfect! Now let's run it:
 
@@ -174,7 +185,7 @@ No shell access! The program only crashed, and did nothing else. What went wrong
 
 After a fair bit of debugging, I realised the issue: The payload I sent in fact did almost everything I wanted it to do: r0 really was holding the value "/bin/sh", and the top of the stack really was pointing to system.
 
-![righttrack.png]({{site.baseurl}}/_posts/righttrack.png)
+![righttrack.png]({{site.baseurl}}/assets/images/righttrack.png)
 _Signs that I was on the right track._
 
 The issue that I overlooked was that I assumed that the program flow would just go back to SP after loading r0 with my desired value. However, the command that followed **LDR r0, [SP, #4]** was actually **BLX r4**, and r4 was pointing at **0xbefffa88**, effectively skipping my buffer overflow! Back to square one, I suppose. 
@@ -205,13 +216,13 @@ However, this still didn't work. Some examination revealed that since the BL swa
 
 So, I couldn't find a satisfying **LDR r0, [SP]** instruction. Were there any alternatives? After thinking for a bit, I realised that I could try, instead, **popping** system() and "/bin/sh" off the stack into r0 and pc. So, lets open up Ropper again and do "**"search /1/ pop{r0"**.
 
-![ropper3.png]({{site.baseurl}}/_posts/ropper3.png)
+![ropper3.png]({{site.baseurl}}/assets/images/ropper3.png)
 _The perfect gadget?_
 
 
 And straight off the bat we see that there is a **pop {r0, pc}** gadget! Now we can alter our code to include this. Let's first check out the new flow that we require:
-![stack3.png]({{site.baseurl}}/_posts/stack3.png)
-![stack4.png]({{site.baseurl}}/_posts/stack4.png)
+![stack3.png]({{site.baseurl}}/assets/images/stack3.png)
+![stack4.png]({{site.baseurl}}/assets/images/stack4.png)
 
 _Notice that bin/sh and system() are inverted compared to the previous try_
 
@@ -229,7 +240,7 @@ Now, our payload looks like:
 
 Lets try it out (Please work)
 
-![]({{site.baseurl}}/_posts/failure.png)
+![]({{site.baseurl}}/assets/images/failure.png)
 _Segmentation Fault... again._
 
 
@@ -243,7 +254,7 @@ As it turned out, I did not realise what I needed to do to fix this until I actu
 
 
 All I had to do was to look at $PC.
-![theerror.png]({{site.baseurl}}/_posts/theerror.png)
+![theerror.png]({{site.baseurl}}/assets/images/theerror.png)
 
 
 The address that PC was pointing at and the actual next address for system were **not the same**. This is because the program entered thumb mode and everything was displaced by 1. As such, PC was not pointing to a complete instruction and crashed. All I needed to do was to change that /x8c to /x8d.
@@ -258,7 +269,7 @@ The address that PC was pointing at and the actual next address for system were 
     print payload
 
 
-![success.png]({{site.baseurl}}/_posts/success.png)
+![success.png]({{site.baseurl}}/assets/images/success.png)
 _There we go._
 
 
@@ -273,7 +284,7 @@ That was quite the marathon (for me), although I felt like this really would be 
 
 Inspired by a source over the internet, I went to look for longer instructions that contained LDR r0, using "**search /2/ LDR r0**". 
 
-![questionable.png]({{site.baseurl}}/_posts/questionable.png)
+![questionable.png]({{site.baseurl}}/assets/images/questionable.png)
 
 _Desparately grasping for any help_
 
