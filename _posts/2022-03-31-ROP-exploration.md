@@ -48,6 +48,8 @@ Now, this was all possible because the stack in Challenge1 had RWX permissions, 
 In Challenge2, the XN (Execute Never) bit was turned on, and it is not longer as straightforward to just straight up run whatever code the attacker wants to inject. What we now want to do is to kind of piece together puzzle pieces, using code snippets that are already present in the system, in order to carry out what we want. Specifically here, we will be using code snippets from the libc (basically the preinstalled C library) in order to carry out our evil deeds, since libc has execute permissions.
 
 ![The stack only has read and write permissions.]({{site.baseurl}}/assets/images/permissions.png)
+
+
 _The stack only has read/write permissions, whereas part of libc does have execute permissions._
 
 
@@ -58,11 +60,15 @@ Now, what we have to do first is to determine the **offset** of the program, ie 
 Fortunately, we can use our debugging tool (GDB) to figure this out instead of trial and error of running a massive number of As into the program.
 
 ![conveniently getting a massive output that we can paste into the program]({{site.baseurl}}/assets/images/offset1.png)
+
+
 _Generating a long string to crash the program with_
 
 After this, we run the program through and observe the segfault that occurs, and do the following to find the offset:
 
 ![Running pattern search to determine at what point stuff overflows into the PC.]({{site.baseurl}}/assets/images/offset2.png)
+
+
 _Running pattern search to determine at exactly what point stuff overflows into the PC (Or rather what part of the code is popped into PC from the stack)_
 
 (I am yet to fully grasp why we search for $pc + 1, but roughly I believe it is because in ARM the PC always adjusts itself for alignment purposes)
@@ -101,6 +107,8 @@ That actually doesn't seem that hard! Let's begin with
 
 
 ![system.png]({{site.baseurl}}/assets/images/system.png)
+
+
 _It's as simple as that._
 
 
@@ -127,11 +135,15 @@ Time for our good friend Ropper. Cd-ing into the directory where libc resides, w
 
 ![ropper1.png]({{site.baseurl}}/assets/images/ropper1.png)
 ![ropper2.png]({{site.baseurl}}/assets/images/ropper2.png)
+
+
 _The list is longer than this, but we are only interested in loading something from what SP is pointing to onto r0, not data from other registers._
 
 
 Damn, looks like we aren't in luck. There is no **LDR r0, [SP]**. But isn't the **LDR r0, [SP, #4]** gadget the same thing? I just have to make "/bin/sh" appear 4 bytes further down. _Voila,_ I thought, _this is it._ We need the address of this gadget, which isn't trivially the number we see in this screenshot. We need to add it onto the base address of libc, which I have indicated as follows:
 ![libcwhere.png]({{site.baseurl}}/assets/images/libcwhere.png)
+
+
 _We will use the python function struct pack later on to add the addresses together because we're lazy._
 
 
@@ -139,8 +151,10 @@ _We will use the python function struct pack later on to add the addresses toget
 At that time, my idea was:
 
 
-<img src=https://junkmaniad.github.io/assetsimages/stack1.png width="250" height="95"/>
 ![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
+![stack2.png]({{site.baseurl}}/assets/images/stack2.png)
+
+
 _The stack, and the corresponding hex representation_
 
 
@@ -234,8 +248,11 @@ _The perfect gadget?_
 
 
 And straight off the bat we see that there is a **pop {r0, pc}** gadget! Now we can alter our code to include this. Let's first check out the new flow that we require:
+
+
 ![stack3.png]({{site.baseurl}}/assets/images/stack3.png)
 ![stack4.png]({{site.baseurl}}/assets/images/stack4.png)
+
 
 _Notice that bin/sh and system() are inverted compared to the previous try_
 
@@ -254,6 +271,8 @@ Now, our payload looks like:
 Lets try it out (Please work)
 
 ![]({{site.baseurl}}/assets/images/failure.png)
+
+
 _Segmentation Fault... again._
 
 
@@ -271,6 +290,7 @@ All I had to do was to look at $PC.
 ![theerror.png]({{site.baseurl}}/assets/images/theerror.png)
 
 
+
 The address that PC was pointing at and the actual next address for system were **not the same**. This is because the program entered thumb mode and everything was displaced by 1. As such, PC was not pointing to a complete instruction and crashed. All I needed to do was to change that /x8c to /x8d.
 
 	#!/usr/bin/python
@@ -284,6 +304,8 @@ The address that PC was pointing at and the actual next address for system were 
 
 
 ![success.png]({{site.baseurl}}/assets/images/success.png)
+
+
 _There we go._
 
 
@@ -300,11 +322,14 @@ Inspired by a source over the internet, I went to look for longer instructions t
 
 ![questionable.png]({{site.baseurl}}/assets/images/questionable.png)
 
-_Desparately grasping for straws._
+
+_Desparately grasping at straws._
 
 
 I ended up using the instruction at **0x000beb2e**, which was **LDR r0, [SP, #4]; add SP, #8; pop {r4, PC}**. This required a bit more acrobatics down on the stack, but everything still worked fine. Eventually, I realised that my system() address was off by one byte, as mentioned above, and the rest is history.
 
 ![stack5.png]({{site.baseurl}}/assets/images/stack5.png)
 ![stack6.png]({{site.baseurl}}/assets/images/stack6.png)
+
+
 _Stack visualisation for this. Clearly slightly more complicated than the previous two._
