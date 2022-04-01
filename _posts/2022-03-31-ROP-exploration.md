@@ -143,6 +143,7 @@ _The stack, and the corresponding hex representation_
 
 Where the flow of events I expected was: pop gadget onto pc --> load r0 with "/bin/sh" --> next on the stack is system() so PC will execute system with r0 as the argument.
 
+-----------------------------------------------------------------------
 
 ## **Back to the payload!**
 
@@ -157,7 +158,7 @@ Now, translating all that into the payload:
     payload += "/x8c/xb4/xf0/xb6/x7c/x40/xfb/xb6"
     print payload
 
-### **Tangent: what's with the hex (/x8c/xb4/...)?
+### **Tangent: what's with the hex (/x8c/xb4/...)?**
 
 
 It may not seem completely obvious how exactly we went from the addresses we found to...  this weird string of alphanumeric characters. Basically:
@@ -177,6 +178,8 @@ Perfect! Now let's run it:
     Segmentation Fault
     user@azeria-labs-arm:~/challenges$
     
+------------------------------------------------------------------------
+
 ## **Wait, what?**
 
 
@@ -210,6 +213,7 @@ While typing this out, I considered that since r4 was pointing, like, 20 bytes a
 
 However, this still didn't work. Some examination revealed that since the BL swapped the program to Thumb mode, the PC got sent to the wrong place (1 byte away from the system() call) and the system crashed from there as the address didn't align to Thumb. This requires some further investigation as I'm not so confident on my understanding of this.
 
+------------------------------------------------------------
 
 ## **Back to Square One?**
 
@@ -249,6 +253,7 @@ Another failure? Yet the objective seems in reach --- the next instruction shoul
 
 As it turned out, I did not realise what I needed to do to fix this until I actually cracked it with another gadget. For the sake of not prolonging this much further, I'll cover the small mistake I made.
 
+------------------------------------------------------------
 
 ## **Finally?**
 
@@ -277,7 +282,7 @@ _There we go._
 That was quite the marathon (for me), although I felt like this really would be so straightforward for many others. I guess we all have to start somewhere.
 
 
-
+--------------------------------------------------------------
 
 ## **BONUS: So what did I end up doing?**
 
@@ -286,8 +291,9 @@ Inspired by a source over the internet, I went to look for longer instructions t
 
 ![questionable.png]({{site.baseurl}}/assets/images/questionable.png)
 
-_Desparately grasping for any help_
+_Desparately grasping for straws._
 
 
 I ended up using the instruction at **0x000beb2e**, which was **LDR r0, [SP, #4]; add SP, #8; pop {r4, PC}**. This required a bit more acrobatics down on the stack, but everything still worked fine. Eventually, I realised that my system() address was off by one byte, as mentioned above, and the rest is history.
+
 
